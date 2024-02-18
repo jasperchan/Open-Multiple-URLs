@@ -1,19 +1,19 @@
-import browser from 'webextension-polyfill'
+import browser from "webextension-polyfill";
 
 /**
  * Shuffles array in place.
  * @param {Array} a items An array containing the items.
  */
 const shuffle = (a: string[]) => {
-  let j, x, i
+  let j, x, i;
   for (i = a.length - 1; i > 0; i--) {
-    j = Math.floor(Math.random() * (i + 1))
-    x = a[i]
-    a[i] = a[j]
-    a[j] = x
+    j = Math.floor(Math.random() * (i + 1));
+    x = a[i];
+    a[i] = a[j];
+    a[j] = x;
   }
-  return a
-}
+  return a;
+};
 
 /**
  * Loads sites in new background tabs
@@ -30,58 +30,80 @@ export const loadSites = (
   reverse: boolean,
   deduplicate: boolean
 ): void => {
-  const urlschemes = ['http', 'https', 'file', 'view-source']
-  let urls = getURLsFromText(text, deduplicate)
+  const urlschemes = ["http", "https", "file", "view-source"];
+  let urls = getURLsFromText(text, deduplicate);
 
   if (reverse) {
-    urls = urls.reverse()
+    urls = urls.reverse();
   }
 
   if (random) {
-    urls = shuffle(urls)
+    urls = shuffle(urls);
   }
 
   for (let i = 0; i < urls.length; i++) {
-    let theurl = urls[i].trim()
-    if (theurl !== '') {
-      if (urlschemes.indexOf(theurl.split(':')[0]) === -1) {
-        theurl = 'http://' + theurl
+    let theurl = urls[i].trim();
+    if (theurl !== "") {
+      if (urlschemes.indexOf(theurl.split(":")[0]) === -1) {
+        theurl = "http://" + theurl;
       }
       if (
         lazyloading &&
-        theurl.split(':')[0] !== 'view-source' &&
-        theurl.split(':')[0] !== 'file'
+        theurl.split(":")[0] !== "view-source" &&
+        theurl.split(":")[0] !== "file"
       ) {
         browser.tabs.create({
-          url: browser.runtime.getURL('lazyloading.html#') + theurl,
-          active: false
-        })
+          url: browser.runtime.getURL("lazyloading.html#") + theurl,
+          active: false,
+        });
       } else {
         browser.tabs.create({
           url: theurl,
-          active: false
-        })
+          active: false,
+        });
       }
     }
   }
-}
+};
 
 export const getTabCount = (text: string, deduplicate: boolean) => {
-  let tabCount = '0'
+  let tabCount = "0";
   if (text) {
-    const urls = getURLsFromText(text, deduplicate)
+    const urls = getURLsFromText(text, deduplicate);
     if (urls.length <= 5000) {
       // limit for performance reasons
-      tabCount = String(urls.length)
+      tabCount = String(urls.length);
     } else {
-      tabCount = '> 5000'
+      tabCount = "> 5000";
     }
   }
-  return tabCount
-}
+  return tabCount;
+};
 
-export const getURLsFromText = (text: string, deduplicate: boolean): string[] => {
-  const urlLineSplitRegex = /\r\n?|\n/g
-  const urls = text.split(urlLineSplitRegex).filter((line) => line.trim() !== '')
-  return deduplicate ? Array.from(new Set(urls)) : urls
-}
+export const getURLsFromText = (
+  text: string,
+  deduplicate: boolean
+): string[] => {
+  const urlLineSplitRegex = /\r\n?|\n/g;
+  const urls = text
+    .split(urlLineSplitRegex)
+    .filter((line) => line.trim() !== "");
+
+  // for each url, expand the macro {{n-mmm}}
+  const expanded: string[] = [];
+  for (let url of urls) {
+    const match = url.match(/\{\{(\d+)-(\d+)\}\}/);
+    if (match) {
+      const start = parseInt(match[1]);
+      const end = parseInt(match[2]);
+      const pad = match[1].length;
+      for (let i = start; i <= end; i++) {
+        expanded.push(url.replace(match[0], i.toString().padStart(pad, "0")));
+      }
+    } else {
+      expanded.push(url);
+    }
+  }
+
+  return deduplicate ? Array.from(new Set(expanded)) : expanded;
+};
